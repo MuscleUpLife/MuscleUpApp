@@ -1,208 +1,402 @@
 import React, { useState } from 'react';
-import { View, Button, Text, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Button, TextInput, StyleSheet, Alert, ActivityIndicator, ScrollView, Text, LogBox } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
+import axios from 'axios';
 
-// Google Slides direct PDF export link (replace with your correct link)
-const TEMPLATE_URL = 'https://docs.google.com/presentation/d/1oaYi2-My8UymcPYyCFxnNCJdonVHhQvC/export/pdf';
+// Cloudmersive API Key
+const CLOUDMERSIVE_API_KEY = 'b28802c6-a1e8-48c5-98f3-f44f0d1f5b94';
+
+LogBox.ignoreLogs(['VirtualizedLists should never be nested']);
 
 export default function App() {
   const [clientName, setClientName] = useState('');
   const [weight, setWeight] = useState('');
-  const [totalCalories, setTotalCalories] = useState({
-    protein: 0,
-    carbs: 0,
-    fats: 0,
-  });
-  const [mealData, setMealData] = useState({
-    breakfast: [],
-    lunch: [],
-    snacks: [],
-    dinner: []
-  });
+  const [totalCalories, setTotalCalories] = useState('');
+  const [protein, setProtein] = useState('');
+  const [carbs, setCarbs] = useState('');
+  const [fats, setFats] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [fileName, setFileName] = useState('');
+  const [extractedData, setExtractedData] = useState({});
 
-  // Function to pick the Fittr PDF
+  // Meals sections to bold
+  const meals = ['Breakfast', 'Lunch', 'Snacks', 'Dinner'];
+
   const pickFittrPdf = async () => {
     try {
-      let result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
-      if (result.canceled === false && result.assets && result.assets.length > 0) {
-        const pickedFile = result.assets[0];
-        extractFittrPdfDetails(pickedFile.uri);
-      } else {
+      setLoading(true);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        setLoading(false);
         Alert.alert('No Document Selected', 'Please pick a Fittr PDF document.');
-      }
-    } catch (err) {
-      console.error('Error picking document:', err);
-      Alert.alert('Error', 'There was an error picking the document. Please try again.');
-    }
-  };
-
-  // Function to extract data from Fittr PDF
-  const extractFittrPdfDetails = async (pdfUri) => {
-    try {
-      const pdfBytes = await FileSystem.readAsStringAsync(pdfUri, { encoding: FileSystem.EncodingType.Base64 });
-      const pdfDoc = await PDFDocument.load(pdfBytes);
-      const pdfArrayBuffer = await pdfDoc.save(); // convert to ArrayBuffer for text extraction
-      
-      // Load the PDF using pdfjs-lib to extract text content
-      const pdf = await pdfjsLib.getDocument({ data: pdfArrayBuffer }).promise;
-      let extractedText = '';
-
-      for (let i = 0; i < pdf.numPages; i++) {
-        const page = await pdf.getPage(i + 1);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        extractedText += ` ${pageText}`;
-      }
-
-      // Now, dynamically extract the customer details and meal information from the extracted text
-      console.log("Extracted Text: ", extractedText);
-      
-      // Simulate extraction of client details
-      const clientNameMatch = extractedText.match(/Client Name: (\w+ \w+)/);
-      const weightMatch = extractedText.match(/Weight: (\d+)/);
-      const proteinMatch = extractedText.match(/Protein: (\d+)/);
-      const carbsMatch = extractedText.match(/Carbs: (\d+)/);
-      const fatsMatch = extractedText.match(/Fats: (\d+)/);
-
-      setClientName(clientNameMatch ? clientNameMatch[1] : 'Unknown');
-      setWeight(weightMatch ? weightMatch[1] : '0');
-      setTotalCalories({
-        protein: proteinMatch ? parseInt(proteinMatch[1], 10) : 0,
-        carbs: carbsMatch ? parseInt(carbsMatch[1], 10) : 0,
-        fats: fatsMatch ? parseInt(fatsMatch[1], 10) : 0
-      });
-
-      // Extract meal sections (You can refine the regex based on Fittr PDF format)
-      const breakfastMatches = extractedText.match(/Breakfast.*?\((.*?)\)/g);
-      const lunchMatches = extractedText.match(/Lunch.*?\((.*?)\)/g);
-      const snacksMatches = extractedText.match(/Snacks.*?\((.*?)\)/g);
-      const dinnerMatches = extractedText.match(/Dinner.*?\((.*?)\)/g);
-
-      setMealData({
-        breakfast: breakfastMatches ? parseMealData(breakfastMatches) : [],
-        lunch: lunchMatches ? parseMealData(lunchMatches) : [],
-        snacks: snacksMatches ? parseMealData(snacksMatches) : [],
-        dinner: dinnerMatches ? parseMealData(dinnerMatches) : []
-      });
-
-      Alert.alert('Fittr PDF Processed', 'Details extracted from Fittr PDF successfully!');
-    } catch (err) {
-      console.error('Error extracting Fittr PDF details:', err);
-      Alert.alert('Error', 'There was an error extracting details from the Fittr PDF.');
-    }
-  };
-
-  // Function to parse meal data (assumes a format like "Oats (80 gm, 300 kcal, 10g Protein, ...)")
-  const parseMealData = (mealMatches) => {
-    return mealMatches.map((meal) => {
-      const mealMatch = meal.match(/(.*?)\((.*?) gm, (.*?) kcal, (.*?)g Protein, (.*?)g Carbs, (.*?)g Fats\)/);
-      if (mealMatch) {
-        return {
-          name: mealMatch[1].trim(),
-          quantity: parseFloat(mealMatch[2]),
-          calories: parseFloat(mealMatch[3]),
-          protein: parseFloat(mealMatch[4]),
-          carbs: parseFloat(mealMatch[5]),
-          fats: parseFloat(mealMatch[6])
-        };
-      }
-      return null;
-    }).filter(Boolean);
-  };
-
-  // Function to fetch and modify the MuscleUp PDF
-  const fetchAndModifyMuscleUpPdf = async () => {
-    try {
-      if (!clientName || !weight) {
-        Alert.alert('Missing Information', 'Please enter the client name and weight.');
         return;
       }
 
-      // Fetch the MuscleUp template PDF from Google Slides
-      const response = await fetch(TEMPLATE_URL);
-      const templateBytes = await response.arrayBuffer();
-
-      // Load the PDF from fetched bytes
-      const pdfDoc = await PDFDocument.load(templateBytes);
-
-      // Get the first page of the template
-      const page = pdfDoc.getPages()[0];
-      const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-      // Modify the template with client info
-      page.drawText(`Client: ${clientName}`, { x: 100, y: 700, size: 18, font, color: rgb(0, 0, 0) });
-      page.drawText(`Weight: ${weight} lbs`, { x: 100, y: 670, size: 18, font, color: rgb(0, 0, 0) });
-
-      // Add Total Calories
-      page.drawText(`Protein: ${totalCalories.protein} g`, { x: 100, y: 640, size: 18, font, color: rgb(0, 0, 0) });
-      page.drawText(`Carbs: ${totalCalories.carbs} g`, { x: 100, y: 610, size: 18, font, color: rgb(0, 0, 0) });
-      page.drawText(`Fats: ${totalCalories.fats} g`, { x: 100, y: 580, size: 18, font, color: rgb(0, 0, 0) });
-
-      // Add dynamic meal data (example for breakfast)
-      let yOffset = 550;
-      mealData.breakfast.forEach((meal) => {
-        page.drawText(`${meal.name}: ${meal.quantity} gm | ${meal.calories} kcal | ${meal.protein} g Protein | ${meal.carbs} g Carbs | ${meal.fats} g Fats`, {
-          x: 100, y: yOffset, size: 12, font, color: rgb(0, 0, 0),
-        });
-        yOffset -= 20;
-      });
-
-      // Add Lunch
-      yOffset -= 30;
-      page.drawText('Lunch', { x: 100, y: yOffset, size: 18, font, color: rgb(0.12, 0.56, 1) });
-      yOffset -= 30;
-      mealData.lunch.forEach((meal) => {
-        page.drawText(`${meal.name}: ${meal.quantity} gm | ${meal.calories} kcal | ${meal.protein} g Protein | ${meal.carbs} g Carbs | ${meal.fats} g Fats`, {
-          x: 100, y: yOffset, size: 12, font, color: rgb(0, 0, 0),
-        });
-        yOffset -= 20;
-      });
-
-      // Add Snacks
-      yOffset -= 30;
-      page.drawText('Snacks', { x: 100, y: yOffset, size: 18, font, color: rgb(0.12, 0.56, 1) });
-      yOffset -= 30;
-      mealData.snacks.forEach((meal) => {
-        page.drawText(`${meal.name}: ${meal.quantity} gm | ${meal.calories} kcal | ${meal.protein} g Protein | ${meal.carbs} g Carbs | ${meal.fats} g Fats`, {
-          x: 100, y: yOffset, size: 12, font, color: rgb(0, 0, 0),
-        });
-        yOffset -= 20;
-      });
-
-      // Add Dinner
-      yOffset -= 30;
-      page.drawText('Dinner', { x: 100, y: yOffset, size: 18, font, color: rgb(0.12, 0.56, 1) });
-      yOffset -= 30;
-      mealData.dinner.forEach((meal) => {
-        page.drawText(`${meal.name}: ${meal.quantity} gm | ${meal.calories} kcal | ${meal.protein} g Protein | ${meal.carbs} g Carbs | ${meal.fats} g Fats`, {
-          x: 100, y: yOffset, size: 12, font, color: rgb(0, 0, 0),
-        });
-        yOffset -= 20;
-      });
-
-      // Save the modified PDF locally
-      const pdfBytes = await pdfDoc.saveAsBase64({ dataUri: false });
-      const newPdfPath = FileSystem.documentDirectory + 'MuscleUpFinal.pdf';
-      await FileSystem.writeAsStringAsync(newPdfPath, pdfBytes, { encoding: FileSystem.EncodingType.Base64 });
-
-      // Share the final PDF
-      await Sharing.shareAsync(newPdfPath);
+      const pickedFile = result.assets && result.assets[0];
+      if (pickedFile && pickedFile.uri) {
+        console.log('Picked PDF URI:', pickedFile.uri);
+        setFileName(pickedFile.name || 'Document');
+        await extractFittrPdfDetails(pickedFile);
+      } else {
+        Alert.alert('Invalid Document', 'The selected file is not a valid PDF document.');
+      }
     } catch (err) {
-      console.error('Error fetching or modifying MuscleUp PDF:', err);
-      Alert.alert('Error', 'There was an error generating the MuscleUp PDF.');
+      console.error('Error picking document:', err);
+      Alert.alert('Error', 'There was an error picking the document.');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const extractFittrPdfDetails = async (file) => {
+    try {
+      setLoading(true);
+      console.log('Sending PDF to Cloudmersive API for extraction...');
+      const formData = new FormData();
+      formData.append('inputFile', {
+        uri: file.uri,
+        type: 'application/pdf',
+        name: file.name || 'document.pdf',
+      });
+
+      const response = await axios.post(
+        'https://api.cloudmersive.com/convert/autodetect/to/txt',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Apikey': CLOUDMERSIVE_API_KEY,
+          },
+        }
+      );
+
+      const textContent = response.data.TextResult;
+      if (!textContent || typeof textContent !== 'string') {
+        Alert.alert('Error', 'No content extracted from the PDF.');
+        return;
+      }
+
+      console.log('Extracted Text from PDF:', textContent);
+
+      const parsedData = parseFittrText(textContent);
+      setExtractedData(parsedData);
+
+      const totalValues = calculateTotal(parsedData);
+      setTotalCalories(totalValues.totalCalories);
+      setProtein(totalValues.totalProtein);
+      setCarbs(totalValues.totalCarbs);
+      setFats(totalValues.totalFats);
+
+      Alert.alert('Success', 'Details extracted and parsed from Fittr PDF successfully!');
+    } catch (err) {
+      console.error('Error extracting Fittr PDF details:', err);
+      Alert.alert('Error', 'There was an error extracting details from the Fittr PDF.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateTotal = (data) => {
+    let totalCalories = 0;
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFats = 0;
+
+    meals.forEach((meal) => {
+      if (data[meal]) {
+        data[meal].forEach((item) => {
+          totalCalories += parseFloat(item.calories);
+          totalProtein += parseFloat(item.protein);
+          totalCarbs += parseFloat(item.carbs);
+          totalFats += parseFloat(item.fats);
+        });
+      }
+    });
+
+    return {
+      totalCalories: totalCalories.toFixed(2),
+      totalProtein: totalProtein.toFixed(2),
+      totalCarbs: totalCarbs.toFixed(2),
+      totalFats: totalFats.toFixed(2),
+    };
+  };
+
+  const parseFittrText = (text) => {
+    const lines = text.split('\n').filter((line) => line.trim() !== '');
+    const mealsData = { Breakfast: [], Lunch: [], Snacks: [], Dinner: [] };
+
+    let currentMeal = null;
+    const mealSections = ['Breakfast', 'Lunch', 'Snacks', 'Dinner'];
+
+    lines.forEach((line) => {
+      line = line.trim();
+
+      console.log('Processing line:', line);
+
+      if (mealSections.includes(line)) {
+        currentMeal = line;
+        console.log(`Current meal set to: ${currentMeal}`);
+        return;
+      }
+
+      if (!currentMeal || line.startsWith('Food') || line.includes('Calories')) {
+        return;
+      }
+
+      const columns = line.split(/\s{2,}/);
+
+      if (columns.length >= 6) {
+        const foodItem = columns[0];
+        const quantity = columns[1];
+        const calories = columns[2].replace('kcl', '').trim();
+        const protein = columns[3].replace('g', '').trim();
+        const carbs = columns[4].replace('g', '').trim();
+        const fats = columns[5].replace('g', '').trim();
+
+        mealsData[currentMeal].push({
+          food: foodItem,
+          quantity,
+          calories,
+          protein,
+          carbs,
+          fats,
+        });
+        console.log(`Added food item: ${foodItem}`);
+      } else {
+        console.log('Line does not contain enough columns:', line);
+      }
+    });
+
+    return mealsData;
+  };
+
+  const applyBackgroundColor = (page) => {
+    page.drawRectangle({
+      x: 0,
+      y: 0,
+      width: page.getWidth(),
+      height: page.getHeight(),
+      color: rgb(0.96, 0.93, 0.85),  // Light background color
+    });
+  };
+
+  const createAndSharePdf = async () => {
+    if (!clientName || !weight) {
+      Alert.alert('Error', 'Please enter both Name and Weight.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const pdfDoc = await PDFDocument.create();
+      let page = pdfDoc.addPage([600, 800]);
+
+      applyBackgroundColor(page);
+
+      const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+      const itemSpacing = 18;
+      const sectionSpacing = 25;
+      const firstItemSpacing = 25;
+      const yOffsetThreshold = 30;
+
+      page.drawText('Nutrition Plan', {
+        x: 40,
+        y: 750,
+        size: 24,
+        font,
+        color: rgb(0.07, 0.51, 0.64),
+      });
+
+      page.drawText('Name:', {
+        x: 40,
+        y: 700,
+        size: 12,
+        font: regularFont,
+        color: rgb(0.07, 0.51, 0.64),
+      });
+      page.drawText('Weight:', {
+        x: 40,
+        y: 670,
+        size: 12,
+        font: regularFont,
+        color: rgb(0.07, 0.51, 0.64),
+      });
+
+      page.drawText(clientName, {
+        x: 82,
+        y: 700,
+        size: 14,
+        font,
+        color: rgb(0, 0, 0),
+      });
+      page.drawText(`${weight} lbs`, {
+        x: 85,
+        y: 670,
+        size: 14,
+        font,
+        color: rgb(0, 0, 0),
+      });
+
+      page.drawText('Total Calories:', {
+        x: 350,
+        y: 700,
+        size: 12,
+        font: regularFont,
+        color: rgb(0.07, 0.51, 0.64),
+      });
+      page.drawText('Protein:', {
+        x: 350,
+        y: 670,
+        size: 12,
+        font: regularFont,
+        color: rgb(0.07, 0.51, 0.64),
+      });
+      page.drawText('Carbs:', {
+        x: 350,
+        y: 640,
+        size: 12,
+        font: regularFont,
+        color: rgb(0.07, 0.51, 0.64),
+      });
+      page.drawText('Fats:', {
+        x: 350,
+        y: 610,
+        size: 12,
+        font: regularFont,
+        color: rgb(0.07, 0.51, 0.64),
+      });
+
+      page.drawText(`${totalCalories} kcal`, {
+        x: 435,
+        y: 700,
+        size: 14,
+        font,
+        color: rgb(0, 0, 0),
+      });
+      page.drawText(`${protein} g`, {
+        x: 400,
+        y: 670,
+        size: 14,
+        font,
+        color: rgb(0, 0, 0),
+      });
+      page.drawText(`${carbs} g`, {
+        x: 395,
+        y: 640,
+        size: 14,
+        font,
+        color: rgb(0, 0, 0),
+      });
+      page.drawText(`${fats} g`, {
+        x: 385,
+        y: 610,
+        size: 14,
+        font,
+        color: rgb(0, 0, 0),
+      });
+
+      page.drawText('Food Item', { x: 40, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
+      page.drawText('Quantity', { x: 240, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
+      page.drawText('Calories(kcal)', { x: 310, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
+      page.drawText('Protein(g)', { x: 405, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
+      page.drawText('Carbs(g)', { x: 468, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
+      page.drawText('Fats(g)', { x: 528, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
+
+      let yOffset = 530;
+
+      meals.forEach((meal) => {
+        if (yOffset <= yOffsetThreshold) {
+          page = pdfDoc.addPage([600, 800]);
+          applyBackgroundColor(page);
+          yOffset = 780;
+        }
+
+        page.drawText(meal, { x: 40, y: yOffset, size: 14, font, color: rgb(0.07, 0.51, 0.64) });
+        yOffset -= firstItemSpacing;
+
+        if (extractedData[meal]) {
+          extractedData[meal].forEach((item, index) => {
+            if (yOffset <= yOffsetThreshold) {
+              page = pdfDoc.addPage([600, 800]);
+              applyBackgroundColor(page);
+              yOffset = 780;
+            }
+
+            const foodLines = wrapText(item.food, 200);
+
+            foodLines.forEach((line, lineIndex) => {
+              page.drawText(line, { x: 40, y: yOffset - lineIndex * 7, size: 12, font: regularFont, color: rgb(0, 0, 0) });
+            });
+
+            page.drawText(item.quantity, { x: 240, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
+            page.drawText(item.calories,{ x: 330, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
+            page.drawText(item.protein,{ x: 420, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
+            page.drawText(item.carbs, { x: 480, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
+            page.drawText(item.fats, { x: 540, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
+
+            yOffset -= itemSpacing + (foodLines.length - 1) * 7;
+
+            if (index === extractedData[meal].length - 1) {
+              yOffset -= sectionSpacing;
+            }
+          });
+        }
+      });
+
+      const pdfBytes = await pdfDoc.saveAsBase64({ dataUri: false });
+      const pdfPath = `${FileSystem.documentDirectory}MuscleUp_${clientName}.pdf`;
+      await FileSystem.writeAsStringAsync(pdfPath, pdfBytes, { encoding: FileSystem.EncodingType.Base64 });
+
+      await sharePdf(pdfPath);
+
+      Alert.alert('Success', 'MuscleUp branded PDF created and shared successfully!');
+    } catch (error) {
+      console.error('Error creating PDF:', error);
+      Alert.alert('Error', 'There was an error creating the MuscleUp PDF.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sharePdf = async (pdfPath) => {
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(pdfPath);
+    } else {
+      Alert.alert('Error', 'Sharing is not available on this device');
+    }
+  };
+
+  const wrapText = (text, maxWidth) => {
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = '';
+
+    words.forEach((word) => {
+      const width = currentLine.length + word.length;
+      if (width > maxWidth) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine += (currentLine ? ' ' : '') + word;
+      }
+    });
+
+    lines.push(currentLine);
+    return lines;
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>MuscleUp PDF Generator</Text>
-
-      <Button title="Pick Fittr PDF" onPress={pickFittrPdf} color="#FFA500" />
-
+    <ScrollView contentContainerStyle={styles.container}>
       <TextInput
         style={styles.input}
         placeholder="Client Name"
@@ -210,6 +404,7 @@ export default function App() {
         onChangeText={setClientName}
         placeholderTextColor="#aaa"
       />
+
       <TextInput
         style={styles.input}
         placeholder="Weight (in lbs)"
@@ -219,32 +414,52 @@ export default function App() {
         placeholderTextColor="#aaa"
       />
 
-      <Button title="Generate MuscleUp PDF" onPress={fetchAndModifyMuscleUpPdf} color="#1E90FF" />
-    </View>
+      {fileName ? <Text style={styles.fileName}>File Selected: {fileName}</Text> : null}
+      {extractedData && meals.some((meal) => extractedData[meal]?.length) ? (
+        <Text style={styles.fileName}>Extracted Data Available</Text>
+      ) : null}
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#FFA500" />
+      ) : (
+        <>
+          <Button title="Pick Fittr PDF" onPress={pickFittrPdf} color="#FFA500" />
+          {extractedData && meals.some((meal) => extractedData[meal]?.length) ? (
+            <Button title="Create and Share MuscleUp PDF" onPress={createAndSharePdf} color="#32CD32" style={styles.actionButton} />
+          ) : null}
+        </>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
+    flexGrow: 1,
+    backgroundColor: '#F8F8F8',
     padding: 20,
     justifyContent: 'center',
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1E90FF',
-    marginBottom: 20,
-    textAlign: 'center',
+    alignItems: 'center',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#0D47A1',
-    padding: 10,
+    borderColor: '#E67E22',
+    padding: 15,
     marginVertical: 10,
-    borderRadius: 5,
+    borderRadius: 10,
     backgroundColor: '#FFFFFF',
-    color: '#333333',
+    color: '#333',
+    width: '100%',
+    fontSize: 16,
+  },
+  fileName: {
+    fontSize: 14,
+    color: '#2C3E50',
+    marginBottom: 20,
+    fontStyle: 'italic',
+  },
+  actionButton: {
+    marginVertical: 10,
+    borderRadius: 10,
   },
 });
