@@ -27,6 +27,10 @@ export default function App() {
   // Meals sections to bold
   const meals = ['Breakfast', 'Lunch', 'Snacks', 'Dinner'];
 
+  const sanitizeText = (text) => {
+    return text.replace(/ﬂ/g, 'fl'); // Replace problematic ligature 'ﬂ' with 'fl'
+  };
+
   const pickFittrPdf = async () => {
     try {
       setLoading(true);
@@ -206,34 +210,32 @@ export default function App() {
       const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
+      // Load the MuscleUp logo from assets folder
+      const asset = Asset.fromModule(require('./assets/Logo.png'));
+      await asset.downloadAsync();
+      const logoBytes = await FileSystem.readAsStringAsync(asset.localUri, { encoding: FileSystem.EncodingType.Base64 });
+      const logoImage = await pdfDoc.embedPng(logoBytes);
 
-// Load the MuscleUp logo from assets folder
-const asset = Asset.fromModule(require('./assets/Logo.png'));
-await asset.downloadAsync();
-const logoBytes = await FileSystem.readAsStringAsync(asset.localUri, { encoding: FileSystem.EncodingType.Base64 });
-const logoImage = await pdfDoc.embedPng(logoBytes);
+      // Set logo dimensions and position
+      const logoWidth = 75;
+      const logoHeight = 75;
+      const logoX = page.getWidth() - logoWidth - 10; // Position at the top-right corner
+      const logoY = page.getHeight() - logoHeight - 10;
 
-// Set logo dimensions and position
-const logoWidth = 75;
-const logoHeight = 75;
-const logoX = page.getWidth() - logoWidth - 10; // Position at the top-right corner
-const logoY = page.getHeight() - logoHeight - 10;
-
-// Draw the logo on the page
-page.drawImage(logoImage, {
-  x: logoX,
-  y: logoY,
-  width: logoWidth,
-  height: logoHeight,
-});
-
+      // Draw the logo on the page
+      page.drawImage(logoImage, {
+        x: logoX,
+        y: logoY,
+        width: logoWidth,
+        height: logoHeight,
+      });
 
       const itemSpacing = 18;
       const sectionSpacing = 25;
       const firstItemSpacing = 25;
       const yOffsetThreshold = 30;
 
-      page.drawText(`Nutrition Plan for Week ${week}`,{
+      page.drawText(sanitizeText(`Nutrition Plan for Week ${week}`), {
         x: 40,
         y: 750,
         size: 24,
@@ -241,14 +243,15 @@ page.drawImage(logoImage, {
         color: rgb(0.07, 0.51, 0.64),
       });
 
-      page.drawText('Name:', {
+      page.drawText(sanitizeText('Name:'), {
         x: 40,
         y: 700,
         size: 12,
         font: regularFont,
         color: rgb(0.07, 0.51, 0.64),
       });
-      page.drawText('Weight:', {
+
+      page.drawText(sanitizeText('Weight:'), {
         x: 40,
         y: 670,
         size: 12,
@@ -256,14 +259,15 @@ page.drawImage(logoImage, {
         color: rgb(0.07, 0.51, 0.64),
       });
 
-      page.drawText(clientName, {
+      page.drawText(sanitizeText(clientName), {
         x: 82,
         y: 700,
         size: 14,
         font,
         color: rgb(0, 0, 0),
       });
-      page.drawText(`${weight} lbs`, {
+
+      page.drawText(sanitizeText(`${weight} lbs`), {
         x: 85,
         y: 670,
         size: 14,
@@ -271,28 +275,31 @@ page.drawImage(logoImage, {
         color: rgb(0, 0, 0),
       });
 
-      page.drawText('Total Calories:', {
+      page.drawText(sanitizeText('Total Calories:'), {
         x: 350,
         y: 700,
         size: 12,
         font: regularFont,
         color: rgb(0.07, 0.51, 0.64),
       });
-      page.drawText('Protein:', {
+
+      page.drawText(sanitizeText('Protein:'), {
         x: 350,
         y: 670,
         size: 12,
         font: regularFont,
         color: rgb(0.07, 0.51, 0.64),
       });
-      page.drawText('Carbs:', {
+
+      page.drawText(sanitizeText('Carbs:'), {
         x: 350,
         y: 640,
         size: 12,
         font: regularFont,
         color: rgb(0.07, 0.51, 0.64),
       });
-      page.drawText('Fats:', {
+
+      page.drawText(sanitizeText('Fats:'), {
         x: 350,
         y: 610,
         size: 12,
@@ -300,28 +307,31 @@ page.drawImage(logoImage, {
         color: rgb(0.07, 0.51, 0.64),
       });
 
-      page.drawText(`${totalCalories} kcal`, {
+      page.drawText(sanitizeText(`${totalCalories} kcal`), {
         x: 435,
         y: 700,
         size: 14,
         font,
         color: rgb(0, 0, 0),
       });
-      page.drawText(`${protein} g`, {
+
+      page.drawText(sanitizeText(`${protein} g`), {
         x: 400,
         y: 670,
         size: 14,
         font,
         color: rgb(0, 0, 0),
       });
-      page.drawText(`${carbs} g`, {
+
+      page.drawText(sanitizeText(`${carbs} g`), {
         x: 395,
         y: 640,
         size: 14,
         font,
         color: rgb(0, 0, 0),
       });
-      page.drawText(`${fats} g`, {
+
+      page.drawText(sanitizeText(`${fats} g`), {
         x: 385,
         y: 610,
         size: 14,
@@ -329,12 +339,12 @@ page.drawImage(logoImage, {
         color: rgb(0, 0, 0),
       });
 
-      page.drawText('Food Item', { x: 40, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
-      page.drawText('Quantity', { x: 240, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
-      page.drawText('Calories(kcal)', { x: 310, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
-      page.drawText('Protein(g)', { x: 405, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
-      page.drawText('Carbs(g)', { x: 468, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
-      page.drawText('Fats(g)', { x: 528, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
+      page.drawText(sanitizeText('Food Item'), { x: 40, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
+      page.drawText(sanitizeText('Quantity'), { x: 240, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
+      page.drawText(sanitizeText('Calories(kcal)'), { x: 310, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
+      page.drawText(sanitizeText('Protein(g)'), { x: 405, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
+      page.drawText(sanitizeText('Carbs(g)'), { x: 468, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
+      page.drawText(sanitizeText('Fats(g)'), { x: 528, y: 570, size: 12, font: regularFont, color: rgb(0.2, 0.4, 0.6) });
 
       let yOffset = 530;
 
@@ -345,7 +355,7 @@ page.drawImage(logoImage, {
           yOffset = 780;
         }
 
-        page.drawText(meal, { x: 40, y: yOffset, size: 14, font, color: rgb(0.07, 0.51, 0.64) });
+        page.drawText(sanitizeText(meal), { x: 40, y: yOffset, size: 14, font, color: rgb(0.07, 0.51, 0.64) });
         yOffset -= firstItemSpacing;
 
         if (extractedData[meal]) {
@@ -359,14 +369,14 @@ page.drawImage(logoImage, {
             const foodLines = wrapText(item.food, 200);
 
             foodLines.forEach((line, lineIndex) => {
-              page.drawText(line, { x: 40, y: yOffset - lineIndex * 7, size: 12, font: regularFont, color: rgb(0, 0, 0) });
+              page.drawText(sanitizeText(line), { x: 40, y: yOffset - lineIndex * 7, size: 12, font: regularFont, color: rgb(0, 0, 0) });
             });
 
-            page.drawText(item.quantity, { x: 240, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
-            page.drawText(item.calories,{ x: 330, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
-            page.drawText(item.protein,{ x: 420, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
-            page.drawText(item.carbs, { x: 480, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
-            page.drawText(item.fats, { x: 540, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
+            page.drawText(sanitizeText(item.quantity), { x: 240, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
+            page.drawText(sanitizeText(item.calories), { x: 330, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
+            page.drawText(sanitizeText(item.protein), { x: 420, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
+            page.drawText(sanitizeText(item.carbs), { x: 480, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
+            page.drawText(sanitizeText(item.fats), { x: 540, y: yOffset, size: 12, font: regularFont, color: rgb(0, 0, 0) });
 
             yOffset -= itemSpacing + (foodLines.length - 1) * 7;
 
@@ -438,7 +448,7 @@ page.drawImage(logoImage, {
         placeholderTextColor="#aaa"
       />
 
-<TextInput
+      <TextInput
         style={styles.input}
         placeholder="Week"
         value={week}
