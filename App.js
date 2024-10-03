@@ -5,6 +5,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import axios from 'axios';
+import { Asset } from 'expo-asset';
 
 // Cloudmersive API Key
 const CLOUDMERSIVE_API_KEY = 'b28802c6-a1e8-48c5-98f3-f44f0d1f5b94';
@@ -14,6 +15,7 @@ LogBox.ignoreLogs(['VirtualizedLists should never be nested']);
 export default function App() {
   const [clientName, setClientName] = useState('');
   const [weight, setWeight] = useState('');
+  const [week, setWeek] = useState('');
   const [totalCalories, setTotalCalories] = useState('');
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
@@ -204,12 +206,34 @@ export default function App() {
       const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
+
+// Load the MuscleUp logo from assets folder
+const asset = Asset.fromModule(require('./assets/Logo.png'));
+await asset.downloadAsync();
+const logoBytes = await FileSystem.readAsStringAsync(asset.localUri, { encoding: FileSystem.EncodingType.Base64 });
+const logoImage = await pdfDoc.embedPng(logoBytes);
+
+// Set logo dimensions and position
+const logoWidth = 75;
+const logoHeight = 75;
+const logoX = page.getWidth() - logoWidth - 10; // Position at the top-right corner
+const logoY = page.getHeight() - logoHeight - 10;
+
+// Draw the logo on the page
+page.drawImage(logoImage, {
+  x: logoX,
+  y: logoY,
+  width: logoWidth,
+  height: logoHeight,
+});
+
+
       const itemSpacing = 18;
       const sectionSpacing = 25;
       const firstItemSpacing = 25;
       const yOffsetThreshold = 30;
 
-      page.drawText('Nutrition Plan', {
+      page.drawText(`Nutrition Plan for Week ${week}`,{
         x: 40,
         y: 750,
         size: 24,
@@ -354,7 +378,7 @@ export default function App() {
       });
 
       const pdfBytes = await pdfDoc.saveAsBase64({ dataUri: false });
-      const pdfPath = `${FileSystem.documentDirectory}MuscleUp_${clientName}.pdf`;
+      const pdfPath = `${FileSystem.documentDirectory}MuscleUp_Diet_${clientName}.pdf`;
       await FileSystem.writeAsStringAsync(pdfPath, pdfBytes, { encoding: FileSystem.EncodingType.Base64 });
 
       await sharePdf(pdfPath);
@@ -411,6 +435,14 @@ export default function App() {
         value={weight}
         onChangeText={setWeight}
         keyboardType="numeric"
+        placeholderTextColor="#aaa"
+      />
+
+<TextInput
+        style={styles.input}
+        placeholder="Week"
+        value={week}
+        onChangeText={setWeek}
         placeholderTextColor="#aaa"
       />
 
