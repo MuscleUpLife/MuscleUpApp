@@ -212,8 +212,9 @@ export default function App() {
 
       // Load the MuscleUp logo from assets folder
       const asset = Asset.fromModule(require('./assets/Logo.png'));
-      await asset.downloadAsync();
-      const logoBytes = await FileSystem.readAsStringAsync(asset.localUri, { encoding: FileSystem.EncodingType.Base64 });
+      await asset.downloadAsync();  // Download asset to access its local URI
+      const logoPath = asset.localUri;
+      const logoBytes = await FileSystem.readAsStringAsync(logoPath, { encoding: FileSystem.EncodingType.Base64 });
       const logoImage = await pdfDoc.embedPng(logoBytes);
 
       // Set logo dimensions and position

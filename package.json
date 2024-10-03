@@ -22,7 +22,8 @@
     "pdfjs-dist": "^4.6.82",
     "react": "18.2.0",
     "react-native": "0.74.5",
-    "react-native-fs": "^2.20.0"
+    "react-native-fs": "^2.20.0",
+    "react-native-share": "^11.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
