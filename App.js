@@ -378,7 +378,7 @@ page.drawImage(logoImage, {
       });
 
       const pdfBytes = await pdfDoc.saveAsBase64({ dataUri: false });
-      const pdfPath = `${FileSystem.documentDirectory}MuscleUp_Diet_${clientName}.pdf`;
+      const pdfPath = `${FileSystem.documentDirectory}${clientName}_Diet_Week_${week}.pdf`;
       await FileSystem.writeAsStringAsync(pdfPath, pdfBytes, { encoding: FileSystem.EncodingType.Base64 });
 
       await sharePdf(pdfPath);
