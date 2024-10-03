@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Button, TextInput, StyleSheet, Alert, ActivityIndicator, ScrollView, Text, LogBox } from 'react-native';
+import { View, Button, TextInput, StyleSheet, Alert, ActivityIndicator, ScrollView, Text, LogBox, Image } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -431,6 +431,12 @@ export default function App() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+
+       <Image
+        source={require('./assets/Logo.png')}
+        style={styles.logo}
+      />
+
       <TextInput
         style={styles.input}
         placeholder="Client Name"
@@ -465,9 +471,9 @@ export default function App() {
         <ActivityIndicator size="large" color="#FFA500" />
       ) : (
         <>
-          <Button title="Pick Fittr PDF" onPress={pickFittrPdf} color="#FFA500" />
+          <Button title="Pick Fittr PDF" onPress={pickFittrPdf} color="#96a29f" />
           {extractedData && meals.some((meal) => extractedData[meal]?.length) ? (
-            <Button title="Create and Share MuscleUp PDF" onPress={createAndSharePdf} color="#32CD32" style={styles.actionButton} />
+            <Button title="Create and Share MuscleUp PDF" onPress={createAndSharePdf} color="#1586a7" style={styles.actionButton} />
           ) : null}
         </>
       )}
@@ -478,14 +484,21 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#fdf5ea',
     padding: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
+
+  logo: {
+    width: 100,   // Width of the logo in pixels
+    height: 100,  // Height of the logo in pixels
+    marginBottom: 20,  // Space between the logo and the next component
+  },
+  
   input: {
     borderWidth: 1,
-    borderColor: '#E67E22',
+    borderColor: '#343f3d',
     padding: 15,
     marginVertical: 10,
     borderRadius: 10,
