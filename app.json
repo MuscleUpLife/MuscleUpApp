@@ -15,6 +15,7 @@
       "supportsTablet": true
     },
     "android": {
+      "enableHermes": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/Logo.png",
         "backgroundColor": "#ffffff"
@@ -26,6 +27,7 @@
     },
     "plugins": [
       "expo-asset"
+      ,"./withCustomAndroidManifest.js"
     ],
     "extra": {
       "eas": {
